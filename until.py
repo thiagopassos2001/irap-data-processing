@@ -270,7 +270,7 @@ def SplitLineStringByMaxLengthRandom(
         split_lenght_rand = np.random.normal(mean,max_diff/6,len(split_lenght)-2)
         split_lenght_rand = np.concatenate((np.zeros(2),split_lenght_rand,np.zeros(1)))
         split_lenght = split_lenght + split_lenght_rand[1:] - split_lenght_rand[:-1]
-
+    print(split_lenght)
     # Cria substrings com a extensão desejada a partir da string original
     list_segments = [shapely.ops.substring(line,start,end) for start,end in zip(split_lenght[:-1],split_lenght[1:])]
     

@@ -165,7 +165,8 @@ def CreateAxisFromGeoDataFrame(
 
     # Cria um eixo com os pontos de campo e simplifica a geometria um pouco
     axis_line_string = shapely.LineString(gdf_sorted["geometry"].apply(lambda value:list(value.coords)[0]).tolist())
-    axis_line_string = axis_line_string.simplify(tolerance=tolerance,preserve_topology=True)
+    if tolerance>0:
+        axis_line_string = axis_line_string.simplify(tolerance=tolerance,preserve_topology=True)
     gdf_line_string = gpd.GeoDataFrame(geometry=[axis_line_string],crs="EPSG:31984")
     gdf_line_string["COMPRIMENTO"] = gdf_line_string.length.astype("float64")
 
@@ -220,23 +221,32 @@ def CorrectKilometerPerStake(gdf,gdf_stake,kilometer_column="KM",length_column="
 
 if __name__=="__main__":
     img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\data\img\350ECE0090S0"
-    axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\data\contratante\SNV - BR-153 ATUAL.kmz"
+    axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\080BGO0130D.gpkg"
    
     # result = MetadataToDataFrame(path)
-    gdf = KMZToGeoDataFrame(axis_path).to_crs(31984)
+    gdf = KMZToGeoDataFrame("test/BR/SNV - BR-080 atual.kmz").to_crs(31984)
     gdf["geometry"] = gdf['geometry'].apply(shapely.force_2d).to_crs(31984)
-    fp = gdf[gdf["Name"]=="622+700"]["geometry"].values[0]
+    fp = gdf[gdf["Name"]=="94+300"]["geometry"].values[0]
+    
+    # df = MetadataToDataFrame(img_path)
+    # gdf = gpd.GeoDataFrame(
+    #     df,
+    #     geometry=gpd.points_from_xy(df["Lon"],df["Lat"]),
+    #     crs="EPSG:4326").to_crs(31984)
+    # print(gdf)
+    # fp = gdf[gdf["Name"]=="G0073135.JPG"]["geometry"].values[0]
 
-    # _,segment = CreateAxisFromGeoDataFrame(
-    #     gdf,
-    #     closest_point=fp,
-    #     start_meter_value=0,
-    #     max_length=20,
-    #     return_type="point",
-    #     tolerance=0)
+    _,segment = CreateAxisFromGeoDataFrame(
+        gdf,
+        closest_point=fp,
+        start_meter_value=0,
+        max_length=20,
+        return_type="point",
+        tolerance=0)
 
-    # segment.to_file("test/axis_processed.gpkg",driver="GPKG",index=False)
-    segment = gpd.read_file("test/axis_processed.gpkg").to_crs(31984)
+    segment.to_file("test/BR/axis_processed.gpkg",driver="GPKG",index=False)
+    segment = gpd.read_file("test/BR/axis_processed.gpkg").to_crs(31984)
+    gdf_stake = KMZToGeoDataFrame("test/BR/SNV - BR-080 atual.kmz")
     segment = CorrectKilometerPerStake(segment,gdf,kilometer_column="Name")
-    segment.to_file("test/axis_processed_corrigido.gpkg",driver="GPKG",index=False)
+    segment.to_file("test/BR/axis_processed_corrigido.gpkg",driver="GPKG",index=False)
     print(segment.tail(50))
