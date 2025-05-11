@@ -344,11 +344,12 @@ def CorrectKilometerPerStake(gdf,gdf_stake,kilometer_column="KM",length_column="
     return gdf
 
 if __name__=="__main__":
-    # img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\data\img\350ECE0090S0"
+    img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\fotos\SNV - BR-080 - Fotos.gpkg"
     axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SINV - BR - 080 - Linha.gpkg"
     stake_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SNV - BR-080 - Estacas (contratante).kmz"
     start_point_label = "94+300"
     start_name_column = "Name"
+    max_sheet_km = 10
 
     # Estaca
     gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
@@ -368,6 +369,7 @@ if __name__=="__main__":
     gdf_axis["ORDEM"] = list(range(1,len(gdf_axis)+1))
     # Ajusta o KM
     gdf_axis = CorrectKilometerPerStake(gdf_axis,gdf_stake,kilometer_column=start_name_column,length_column="COMPRIMENTO")
-    # Salva
+    
+    # Salva o eixo
     gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO KM.gpkg"),index=False)
     print("Arquivo Salvo!")
