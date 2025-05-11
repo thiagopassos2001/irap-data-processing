@@ -11,6 +11,9 @@ from until import *
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+CRS = "EPSG:31982" # Goiás Teste
+CRS_int = int(CRS.split(":")[-1])
+
 def GetExifMetadata(img_path):
     """
     Extrai os metadados do arquivo
@@ -141,7 +144,7 @@ def CreateAxisFromGeoDataFrame(
         max_diff=1,
         time_column=None,   # "Timestamp" to .gpkg from ImportPhotos QGIS
         return_type="line",
-        tolerance=0.5):
+        tolerance=0.5,):
     """
     Recebe o .gpkg tratado, gerado de diversas fontes, 
     como a extensão "ImportPhotos" do QGIS
@@ -150,6 +153,8 @@ def CreateAxisFromGeoDataFrame(
     "line" para a linha completa
     "point" para o ponto final da linha
     """
+    crs_gdf = gdf.crs
+
     valid_return_option = ["line","point"]
     if return_type not in valid_return_option:
         return ValueError(f"'{return_type}' inválido! Escolha entre {valid_return_option}")
@@ -167,7 +172,7 @@ def CreateAxisFromGeoDataFrame(
     axis_line_string = shapely.LineString(gdf_sorted["geometry"].apply(lambda value:list(value.coords)[0]).tolist())
     if tolerance>0:
         axis_line_string = axis_line_string.simplify(tolerance=tolerance,preserve_topology=True)
-    gdf_line_string = gpd.GeoDataFrame(geometry=[axis_line_string],crs="EPSG:31984")
+    gdf_line_string = gpd.GeoDataFrame(geometry=[axis_line_string],crs=crs_gdf)
     gdf_line_string["COMPRIMENTO"] = gdf_line_string.length.astype("float64")
 
     # Quebra o eixo em segmentos se reta e organiza um geodataframe
@@ -178,7 +183,7 @@ def CreateAxisFromGeoDataFrame(
         mean=mean,
         max_diff=max_diff)
     
-    gdf_segment = gpd.GeoDataFrame(geometry=list_segments,crs="EPSG:31984")
+    gdf_segment = gpd.GeoDataFrame(geometry=list_segments,crs=crs_gdf)
     # Calcula o KM acumulado do segmento
     gdf_segment["COMPRIMENTO"] = gdf_segment.length.astype("float64")
     gdf_segment["KM"] = start_meter_value + gdf_segment["COMPRIMENTO"].cumsum()/1000
@@ -190,10 +195,10 @@ def CreateAxisFromGeoDataFrame(
             {"COMPRIMENTO":[0],
              "KM":[0]},
             geometry=gdf_segment.iloc[0:1]["geometry"].apply(lambda value:shapely.Point(value.coords[0])),
-            crs="EPSG:31984")
+            crs=crs_gdf)
         gdf_segment["geometry"] = gdf_segment["geometry"].apply(lambda value:shapely.Point(value.coords[-1]))
 
-        gdf_segment = gpd.GeoDataFrame(pd.concat([first_row,gdf_segment],ignore_index=True),geometry="geometry",crs="EPSG:31984")
+        gdf_segment = gpd.GeoDataFrame(pd.concat([first_row,gdf_segment],ignore_index=True),geometry="geometry",crs=crs_gdf)
 
     return gdf_line_string,gdf_segment
 
@@ -219,34 +224,112 @@ def CorrectKilometerPerStake(gdf,gdf_stake,kilometer_column="KM",length_column="
 
     return gdf
 
-if __name__=="__main__":
-    img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\data\img\350ECE0090S0"
-    axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\080BGO0130D.gpkg"
-   
-    # result = MetadataToDataFrame(path)
-    gdf = KMZToGeoDataFrame("test/BR/SNV - BR-080 atual.kmz").to_crs(31984)
-    gdf["geometry"] = gdf['geometry'].apply(shapely.force_2d).to_crs(31984)
-    fp = gdf[gdf["Name"]=="94+300"]["geometry"].values[0]
-    
-    # df = MetadataToDataFrame(img_path)
-    # gdf = gpd.GeoDataFrame(
-    #     df,
-    #     geometry=gpd.points_from_xy(df["Lon"],df["Lat"]),
-    #     crs="EPSG:4326").to_crs(31984)
-    # print(gdf)
-    # fp = gdf[gdf["Name"]=="G0073135.JPG"]["geometry"].values[0]
-
-    _,segment = CreateAxisFromGeoDataFrame(
+def ExpandToSegmentsByMaxLengthRandom(
         gdf,
-        closest_point=fp,
-        start_meter_value=0,
-        max_length=20,
-        return_type="point",
-        tolerance=0)
+        max_length=20.0,
+        random=False,
+        mean=0,
+        max_diff=1,
+    ):
 
-    segment.to_file("test/BR/axis_processed.gpkg",driver="GPKG",index=False)
-    segment = gpd.read_file("test/BR/axis_processed.gpkg").to_crs(31984)
-    gdf_stake = KMZToGeoDataFrame("test/BR/SNV - BR-080 atual.kmz")
-    segment = CorrectKilometerPerStake(segment,gdf,kilometer_column="Name")
-    segment.to_file("test/BR/axis_processed_corrigido.gpkg",driver="GPKG",index=False)
-    print(segment.tail(50))
+    new_gdf = []
+
+    for index, row in gdf.iterrows():
+        list_segments = SplitLineStringByMaxLengthRandom(
+            row["geometry"],
+            max_length=max_length,
+            random=random,
+            mean=mean,
+            max_diff=max_diff)
+        
+        for segment in list_segments:
+            new_row = row.copy()
+            new_row["geometry"] = segment
+            new_gdf.append(new_row)
+    
+    new_gdf = gpd.GeoDataFrame(new_gdf,columns=gdf.columns,crs=gdf.crs)
+    
+    return new_gdf
+
+def SplitLineStringByPoints(line,points_list,max_dist_snap=20,offset_dist=1e-5):
+    """
+    Usa linhas paralelas à linha original para cortar,
+    Mesmo depois de projetar o ponto, podem existir imprecisões geométricas
+    Nesse sentido, projeta-se o ponto nas linhas paralelas e cria uma perpendicular
+    Que invariavelmente corta a princial
+
+    offset_dist < max_dist_snap
+    """
+
+    if offset_dist>=max_dist_snap:
+        return ValueError(f"{offset_dist} deve ser menor que {offset_dist}.")
+
+    valid_parallel_line = []
+    left_line,right_line = line.parallel_offset(offset_dist,"left"),line.parallel_offset(offset_dist,"right")
+    
+    for pt in points_list:
+        dist_pt_line = line.distance(pt)
+        if dist_pt_line <= max_dist_snap:
+            left_pt_interpolate = left_line.interpolate(line.project(pt))
+            right_pt_interpolate = right_line.interpolate(line.project(pt))
+
+            valid_parallel_line.append(
+                shapely.LineString([(left_pt_interpolate.x,left_pt_interpolate.y),(right_pt_interpolate.x,right_pt_interpolate.y)]))
+    
+    if not valid_parallel_line:
+        return [line]
+
+    segments = shapely.ops.split(line, shapely.MultiLineString(valid_parallel_line))
+    segments = list(segments.geoms) if segments.geoms else [line]
+
+    min_length = offset_dist*0.75
+    segments = [i for i in segments if i.length>min_length]
+    
+    return segments
+
+def ExpandToSegmentsBySplitPoint(
+        gdf,
+        points_list,
+        max_dist_snap=20,
+    ):
+
+    new_gdf = []
+
+    for index, row in gdf.iterrows():
+        list_segments = SplitLineStringByPoints(
+            row["geometry"],
+            points_list,
+            max_dist_snap=max_dist_snap)
+        
+        for segment in list_segments:
+            new_row = row.copy()
+            new_row["geometry"] = segment
+            new_gdf.append(new_row)
+    
+    new_gdf = gpd.GeoDataFrame(new_gdf,columns=gdf.columns,crs=gdf.crs)
+    
+    return new_gdf
+
+if __name__=="__main__":
+    # img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\data\img\350ECE0090S0"
+    axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SINV - BR - 080 - Linha.gpkg"
+    stake_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SNV - BR-080 - Estacas (contratante).kmz"
+    axis_name_file = os.path.basename(axis_path)
+
+    # Estaca
+    gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
+    gdf_stake['geometry'] = gdf_stake['geometry'].apply(shapely.force_2d)
+    # print(gdf_stake.iloc[0])
+
+    # Eixo
+    gdf_axis = gpd.read_file(axis_path).to_crs(CRS_int)
+    gdf_axis['geometry'] = gdf_axis['geometry'].apply(shapely.force_2d)
+
+    # # Processamento
+    gdf_axis = ExpandToSegmentsBySplitPoint(gdf_axis,gdf_stake["geometry"].tolist(),max_dist_snap=50)
+    gdf_axis["COMPRIMENTO"] = gdf_axis.geometry.length
+    gdf_axis[["COMPRIMENTO","geometry"]].to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO.gpkg"),index=False)
+    
+    gdf_axis = ExpandToSegmentsByMaxLengthRandom(gdf_axis,max_diff=20)
+    gdf_axis["COMPRIMENTO"] = gdf_axis.geometry.length
+    gdf_axis[["COMPRIMENTO","geometry"]].to_file(axis_path.replace(".gpkg"," EIXO 20m.gpkg"),index=False)
