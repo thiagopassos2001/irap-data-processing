@@ -415,7 +415,7 @@ def BuildAxis(axis_path,stake_path,start_point_label,start_name_column):
         count = count + 1
         next_point = axis["geometry"].values[0]
 
-        print(f"Processando\t{round(count*100/max_count,1)}%")
+        print(f"Running\t{round(count*100/max_count,1)}%")
     
     gdf_axis = gpd.GeoDataFrame(pd.concat(new_gdf_axis,ignore_index=True),geometry="geometry",crs=CRS)
     gdf_axis = gdf_axis.drop_duplicates(subset="geometry",keep="last")

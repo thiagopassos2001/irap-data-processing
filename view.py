@@ -51,5 +51,5 @@ def main():
 
 
 if __name__=="__main__":
-    subprocess.run(["pip","install","-r","requirements.txt"])
+    # subprocess.run(["pip","install","-r","requirements.txt"])
     main()
