@@ -11,8 +11,8 @@ from until import *
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-CRS = "EPSG:31982" # Goiás Teste
-CRS_int = int(CRS.split(":")[-1])
+# CRS = "EPSG:31982" # Goiás Teste
+# CRS_int = int(CRS.split(":")[-1])
 
 def GetExifMetadata(img_path):
     """
@@ -349,16 +349,19 @@ def StakeToFloat(stake_string,sep="+"):
     km,meter = stake_string.split(sep)
     return round(int(km)+int(meter)/1000,3)
 
-def BuildAxis(axis_path,stake_path,start_point_label,start_name_column):
+def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
+    # CRS = "EPSG:31982" # Goiás Teste
+    CRS_int = int(CRS.split(":")[-1])
+
     # Estaca
-    gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
+    # gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
     gdf_stake['geometry'] = gdf_stake['geometry'].apply(shapely.force_2d)
     gdf_stake["KM ESTACA"] = gdf_stake[start_name_column].apply(StakeToFloat)
     start_point = gdf_stake[gdf_stake[start_name_column]==start_point_label]["geometry"].values[0]
 
     # Eixo
-    axis_name_file = os.path.basename(axis_path)
-    gdf_axis = gpd.read_file(axis_path).to_crs(CRS_int)
+    # axis_name_file = os.path.basename(axis_path)
+    # gdf_axis = gpd.read_file(axis_path).to_crs(CRS_int)
     gdf_axis['geometry'] = gdf_axis['geometry'].apply(shapely.force_2d)
 
     # Inverte ou não a ordem dos KMs
