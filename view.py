@@ -5,7 +5,7 @@ import subprocess
 
 def main():
     st.title("iRap - Pré Tratamento de Dados")
-    CRS = st.text_input("CRS do local (tipo SIRGAS 2000)",value="EPSG:31982")
+    CRS = st.text_input("CRS do local (sistema métrico)",value="EPSG:31982")
     CRS_int = int(CRS.split(":")[-1])
 
     stake_path = st.file_uploader("Escolha o shapefile de estaca (.kmz) do eixo", type=["kmz"])
