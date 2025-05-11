@@ -35,18 +35,18 @@ def main():
 
     if st.session_state.gdf_axis_stake is not None:
         st.download_button(
-            label="Download ESTAQUEAMENTO 20m",
+            label="Download ESTAQUEAMENTO 1km",
             data=st.session_state.gdf_axis_stake,
-            file_name="ESTAQUEAMENTO 20m.gpkg",
+            file_name="ESTAQUEAMENTO 1km.gpkg",
             mime="gpkg",
             help="Baixar ESTAQUEAMENTO 20m"
         )
     
     if st.session_state.gdf_axis is not None:
         st.download_button(
-            label="Download ESTAQUEAMENTO",
+            label="Download ESTAQUEAMENTO 20m",
             data=st.session_state.gdf_axis,
-            file_name="ESTAQUEAMENTO.gpkg",
+            file_name="ESTAQUEAMENTO 20m.gpkg",
             mime="gpkg",
             help="Baixar ESTAQUEAMENTO"
             )
