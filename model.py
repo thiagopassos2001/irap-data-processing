@@ -158,7 +158,10 @@ def CreateAxisFromGeoDataFrame(
     valid_return_option = ["line","point"]
     if return_type not in valid_return_option:
         return ValueError(f"'{return_type}' inválido! Escolha entre {valid_return_option}")
-            
+    
+    if not gdf.geom_type.unique()[0]!=shapely.Point:
+        raise ValueError(f"Tipo de geometria {gdf.geom_type.unique()[0]} não compatível!")
+    
     # Ordena os pontos para cria um eixo 
     gdf_sorted = SortPointsBySpaceTime(
         gdf,
@@ -166,8 +169,8 @@ def CreateAxisFromGeoDataFrame(
         time_column=time_column,
         sort_column="ORDEM",
         distance_to_next_point_column="DISTANCIA"
-    )
-
+        )
+    
     # Cria um eixo com os pontos de campo e simplifica a geometria um pouco
     axis_line_string = shapely.LineString(gdf_sorted["geometry"].apply(lambda value:list(value.coords)[0]).tolist())
     if tolerance>0:
@@ -202,31 +205,10 @@ def CreateAxisFromGeoDataFrame(
 
     return gdf_line_string,gdf_segment
 
-def CorrectKilometerPerStake(gdf,gdf_stake,kilometer_column="KM",length_column="COMPRIMENTO"):
-
-    gdf = gdf.sjoin_nearest(gdf_stake[[kilometer_column,"geometry"]],how="left",max_distance=10).drop(columns=["index_right"])
-    
-    gdf[kilometer_column] = gdf[kilometer_column].fillna("-1+0")
-    gdf[["pt1","pt2"]] = gdf[kilometer_column].str.split("+",expand=True)
-    gdf[kilometer_column] = gdf["pt1"].astype(int) + gdf["pt2"].astype(int)/1000
-    gdf = gdf.drop(columns=["pt1","pt2"])
-    gdf[kilometer_column] = gdf[kilometer_column].replace(-1.0,np.nan)
-
-    last_km = 0
-    for index,row in gdf.iterrows():
-        if np.isnan(row[kilometer_column]):
-            row[kilometer_column] = last_km + round(row[length_column]/1000,3)
-        
-        last_km = row[kilometer_column]
-        gdf.iloc[index] = row
-    
-    gdf[kilometer_column] = gdf[kilometer_column].round(3).astype("float64")
-
-    return gdf
-
 def ExpandToSegmentsByMaxLengthRandom(
         gdf,
         max_length=20.0,
+        closest_point=None,
         random=False,
         mean=0,
         max_diff=1,
@@ -235,6 +217,17 @@ def ExpandToSegmentsByMaxLengthRandom(
     new_gdf = []
 
     for index, row in gdf.iterrows():
+        line = row["geometry"]
+        if closest_point!=None:
+            start_pt = shapely.Point(list(line.coords)[0])
+            last_pt = shapely.Point(list(line.coords)[-1])
+            if shapely.distance(start_pt,closest_point)<shapely.distance(last_pt,closest_point):
+                line = line
+                closest_point = last_pt
+            else:
+                line = shapely.LineString(reversed(list(line.coords)))
+                closest_point = start_pt
+        
         list_segments = SplitLineStringByMaxLengthRandom(
             row["geometry"],
             max_length=max_length,
@@ -310,26 +303,71 @@ def ExpandToSegmentsBySplitPoint(
     
     return new_gdf
 
+def ExpandLineStringToPoint(gdf,drop_duplicates=True):
+
+    new_gdf = []
+
+    for index, row in gdf.iterrows():
+        list_segments = list(row["geometry"].coords)
+        
+        for segment in list_segments:
+            new_row = row.copy()
+            new_row["geometry"] = shapely.Point(segment)
+            new_gdf.append(new_row)
+    
+    new_gdf = gpd.GeoDataFrame(new_gdf,columns=gdf.columns,crs=gdf.crs)
+
+    if drop_duplicates:
+        new_gdf = new_gdf.drop_duplicates(subset="geometry")
+
+    return new_gdf
+
+def CorrectKilometerPerStake(gdf,gdf_stake,kilometer_column="KM",length_column="COMPRIMENTO"):
+
+    gdf = gdf.sjoin_nearest(gdf_stake[[kilometer_column,"geometry"]],how="left",max_distance=10).drop(columns=["index_right"])
+    gdf[kilometer_column] = gdf[kilometer_column].fillna("-1+0")
+    gdf[["pt1","pt2"]] = gdf[kilometer_column].str.split("+",expand=True)
+    gdf[kilometer_column] = gdf["pt1"].astype(int) + gdf["pt2"].astype(int)/1000
+    gdf = gdf.drop(columns=["pt1","pt2"])
+    gdf[kilometer_column] = gdf[kilometer_column].replace(-1.0,np.nan)
+
+    last_km = 0
+    for index,row in gdf.iterrows():
+        if np.isnan(row[kilometer_column]):
+            row[kilometer_column] = last_km + round(row[length_column]/1000,3)
+        
+        last_km = row[kilometer_column]
+        gdf.iloc[index] = row
+    
+    gdf[kilometer_column] = gdf[kilometer_column].round(3).astype("float64")
+
+    return gdf
+
 if __name__=="__main__":
     # img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\data\img\350ECE0090S0"
     axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SINV - BR - 080 - Linha.gpkg"
     stake_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SNV - BR-080 - Estacas (contratante).kmz"
-    axis_name_file = os.path.basename(axis_path)
+    start_point_label = "94+300"
+    start_name_column = "Name"
 
     # Estaca
     gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
     gdf_stake['geometry'] = gdf_stake['geometry'].apply(shapely.force_2d)
-    # print(gdf_stake.iloc[0])
+    start_point = gdf_stake[gdf_stake[start_name_column]==start_point_label]["geometry"].values[0]
 
     # Eixo
+    axis_name_file = os.path.basename(axis_path)
     gdf_axis = gpd.read_file(axis_path).to_crs(CRS_int)
     gdf_axis['geometry'] = gdf_axis['geometry'].apply(shapely.force_2d)
 
-    # # Processamento
-    gdf_axis = ExpandToSegmentsBySplitPoint(gdf_axis,gdf_stake["geometry"].tolist(),max_dist_snap=50)
-    gdf_axis["COMPRIMENTO"] = gdf_axis.geometry.length
-    gdf_axis[["COMPRIMENTO","geometry"]].to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO.gpkg"),index=False)
-    
-    gdf_axis = ExpandToSegmentsByMaxLengthRandom(gdf_axis,max_diff=20)
-    gdf_axis["COMPRIMENTO"] = gdf_axis.geometry.length
-    gdf_axis[["COMPRIMENTO","geometry"]].to_file(axis_path.replace(".gpkg"," EIXO 20m.gpkg"),index=False)
+    # Converte os segmentos em pontos
+    gdf_axis = ExpandLineStringToPoint(gdf_axis[["geometry"]])
+    # Ordena os pontos e estima a distância entre os pontos
+    _, gdf_axis = CreateAxisFromGeoDataFrame(gdf_axis,closest_point=start_point,return_type="point")
+    # Recria a coluna ordem
+    gdf_axis["ORDEM"] = list(range(1,len(gdf_axis)+1))
+    # Ajusta o KM
+    gdf_axis = CorrectKilometerPerStake(gdf_axis,gdf_stake,kilometer_column=start_name_column,length_column="COMPRIMENTO")
+    # Salva
+    gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO KM.gpkg"),index=False)
+    print("Arquivo Salvo!")
