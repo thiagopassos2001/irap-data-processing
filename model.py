@@ -349,14 +349,7 @@ def StakeToFloat(stake_string,sep="+"):
     km,meter = stake_string.split(sep)
     return round(int(km)+int(meter)/1000,3)
 
-if __name__=="__main__":
-    img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\fotos\SNV - BR-080 - Fotos.gpkg"
-    axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SINV - BR - 080 - Linha.gpkg"
-    stake_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SNV - BR-080 - Estacas (contratante).kmz"
-    start_point_label = "94+300"
-    start_name_column = "Name"
-    max_sheet_km = 10
-
+def BuildAxis(axis_path,stake_path,start_point_label,start_name_column):
     # Estaca
     gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
     gdf_stake['geometry'] = gdf_stake['geometry'].apply(shapely.force_2d)
@@ -377,10 +370,13 @@ if __name__=="__main__":
         gdf_axis.loc[0,"geometry"] = shapely.LineString(reversed(list(line.coords)))
     gdf_axis = ExpandToSegmentsBySplitPoint(gdf_axis,gdf_stake["geometry"].tolist(),max_dist_snap=100)
     gdf_axis["COMPRIMENTO"] = gdf_axis["geometry"].length
-    gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO.gpkg"),index=False)
+    # gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO.gpkg"),index=False)
+    gdf_axis_stake = gdf_axis.copy()
 
     new_gdf_axis = []
     count = 0
+    max_count = len(gdf_axis)
+
     next_point = start_point
     while not gdf_axis.empty:
         stake_start = gdf_stake.copy()
@@ -419,11 +415,99 @@ if __name__=="__main__":
         count = count + 1
         next_point = axis["geometry"].values[0]
 
-        print(count,stake_start["KM ESTACA"].iloc[0])
+        print(f"Processando\t{round(count*100/max_count,1)}%")
     
     gdf_axis = gpd.GeoDataFrame(pd.concat(new_gdf_axis,ignore_index=True),geometry="geometry",crs=CRS)
     gdf_axis = gdf_axis.drop_duplicates(subset="geometry",keep="last")
 
-    gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO 20m.gpkg"),index=False)
-    print(gdf_axis)
-    print("Arquivo Salvo!")
+    return gdf_axis,gdf_axis_stake
+
+if __name__=="__main__":
+    img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\fotos\SNV - BR-080 - Fotos.gpkg"
+    axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SINV - BR - 080 - Linha.gpkg"
+    stake_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SNV - BR-080 - Estacas (contratante).kmz"
+    start_point_label = "94+300"
+    start_name_column = "Name"
+    max_sheet_km = 10
+
+    axis_processed = BuildAxis(
+        axis_path,
+        stake_path,
+        start_point_label,
+        start_name_column
+        )
+    
+    print(axis_processed)
+
+    if False:
+        # Estaca
+        gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
+        gdf_stake['geometry'] = gdf_stake['geometry'].apply(shapely.force_2d)
+        gdf_stake["KM ESTACA"] = gdf_stake[start_name_column].apply(StakeToFloat)
+        start_point = gdf_stake[gdf_stake[start_name_column]==start_point_label]["geometry"].values[0]
+
+        # Eixo
+        axis_name_file = os.path.basename(axis_path)
+        gdf_axis = gpd.read_file(axis_path).to_crs(CRS_int)
+        gdf_axis['geometry'] = gdf_axis['geometry'].apply(shapely.force_2d)
+
+        # Inverte ou não a ordem dos KMs
+        line = gdf_axis["geometry"].tolist()[0]
+        pt_start = shapely.Point(list(line.coords)[0])
+        pt_last = shapely.Point(list(line.coords)[-1])
+
+        if shapely.distance(start_point,pt_start)>shapely.distance(start_point,pt_last):
+            gdf_axis.loc[0,"geometry"] = shapely.LineString(reversed(list(line.coords)))
+        gdf_axis = ExpandToSegmentsBySplitPoint(gdf_axis,gdf_stake["geometry"].tolist(),max_dist_snap=100)
+        gdf_axis["COMPRIMENTO"] = gdf_axis["geometry"].length
+        gdf_axis_stake = gdf_axis.copy()
+        # gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO.gpkg"),index=False)
+
+        new_gdf_axis = []
+        count = 0
+        next_point = start_point
+        while not gdf_axis.empty:
+            stake_start = gdf_stake.copy()
+            stake_start["NEXT STAKE"] = stake_start["geometry"].apply(lambda value:shapely.distance(value,next_point))
+            stake_start = stake_start.sort_values(by="NEXT STAKE").iloc[:1]
+
+            next_point = stake_start["geometry"].values[0]
+
+            axis = gdf_axis.copy()
+            axis["NEXT AXIS"] = axis["geometry"].apply(lambda value:shapely.distance(value,next_point))
+            axis = axis.sort_values("NEXT AXIS").iloc[:1]
+
+            # Remove do todo
+            gdf_axis = gdf_axis[gdf_axis["geometry"]!=axis["geometry"].iloc[0]]
+            
+            # Comprimento
+            l = axis["geometry"].iloc[0].length
+            num_pt = round(l/20,0) if round(l/20,0)<= 50 else 50
+            len_split = l/num_pt
+
+            # Converte para ponto
+            axis = ExpandLineStringToPoint(axis)
+
+            # Cria o eixo
+            _, axis = CreateAxisFromGeoDataFrame(
+                axis,
+                closest_point=next_point,
+                return_type="point",
+                max_length=len_split,
+                tolerance=0)
+            
+            axis["KM"] = axis["KM"]*(1 if l<=1000 else 1000/l) + stake_start["KM ESTACA"].values[0]
+            axis["KM"] = axis["KM"].round(3)
+            
+            new_gdf_axis.append(axis)
+            count = count + 1
+            next_point = axis["geometry"].values[0]
+
+            print(count,stake_start["KM ESTACA"].iloc[0])
+        
+        gdf_axis = gpd.GeoDataFrame(pd.concat(new_gdf_axis,ignore_index=True),geometry="geometry",crs=CRS)
+        gdf_axis = gdf_axis.drop_duplicates(subset="geometry",keep="last")
+
+        gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO 20m.gpkg"),index=False)
+        print(gdf_axis)
+        print("Arquivo Salvo!")
