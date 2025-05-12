@@ -350,9 +350,6 @@ def StakeToFloat(stake_string,sep="+"):
     return round(int(km)+int(meter)/1000,3)
 
 def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
-    # CRS = "EPSG:31982" # Goiás Teste
-    CRS_int = int(CRS.split(":")[-1])
-
     # Estaca
     # gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
     gdf_stake['geometry'] = gdf_stake['geometry'].apply(shapely.force_2d)
@@ -421,26 +418,77 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
         print(f"Running\t{round(count*100/max_count,1)}%")
     
     gdf_axis = gpd.GeoDataFrame(pd.concat(new_gdf_axis,ignore_index=True),geometry="geometry",crs=CRS)
-    gdf_axis = gdf_axis.drop_duplicates(subset="geometry",keep="last")
+    gdf_axis = gdf_axis.drop_duplicates(subset="geometry",keep="last").reset_index()
+    gdf_axis["ORDEM"] = list(range(1,len(gdf_axis)+1))
 
     return gdf_axis,gdf_axis_stake
 
+def MatchImages(gdf_axis,gdf_img):
+    gdf_axis = gdf_axis.sjoin_nearest(
+        gdf_img[["Name","RelPath","Timestamp","Lon","Lat","geometry"]],
+        how="left",
+        max_distance=20,
+        distance_col="DISTANCIA IMAGEM").sort_values(by="DISTANCIA IMAGEM")
+    
+    gdf_axis = gdf_axis.drop_duplicates(subset="index_right")
+    gdf_axis = gdf_axis.drop(columns=["index_right"])
+    gdf_axis = gdf_axis.dropna(subset="DISTANCIA IMAGEM")
+    gdf_axis = gdf_axis.sort_values(by="ORDEM").reset_index()
+    gdf_axis["ORDEM"] = list(range(0,len(gdf_axis)))
+
+    gdf_axis["DIV LINHA"] = gdf_axis["ORDEM"].apply(lambda value:value//5)
+    gdf_axis["DIV PLANILHA"] = gdf_axis["ORDEM"].apply(lambda value:value//500)
+    
+    return gdf_axis
+
+def SheetRef(gdf_axis,df_ref):
+
+    gdf_first = gdf_axis.copy().drop_duplicates(subset="DIV LINHA",keep="first")
+    gdf_axis = gdf_axis[-gdf_axis["ORDEM"].isin(gdf_first["ORDEM"].tolist())]
+
+    df = [df_ref]
+    for index,row in gdf_first.iterrows():
+        df_ = pd.DataFrame()
+        df_["Image reference"] = [row["Name"]]
+        df_["centre - 0"] = [row["Name"]]
+        df_["Latitude"] = [row["Lat"]]
+        df_["Longitude"] = [row["Lon"]]
+
+        for i,j in zip(gdf_axis[gdf_axis["DIV LINHA"]==row["DIV LINHA"]]["Name"].tolist(),["2","4","6","8"]):
+            df_[f"centre - {j}0"] = [i]
+
+        df.append(df_)
+    
+    df = pd.concat(df,ignore_index=True)
+
+    return df
+
 if __name__=="__main__":
-    img_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\fotos\SNV - BR-080 - Fotos.gpkg"
-    axis_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SINV - BR - 080 - Linha.gpkg"
-    stake_path = r"C:\Users\User\Desktop\Repositórios Locais\irap-data-processing\test\BR\eixo\SNV - BR-080 - Estacas (contratante).kmz"
+    img_path = "test/BR/fotos/SNV - BR-080 - Fotos.gpkg"
+    axis_path = "test/BR/eixo/SINV - BR - 080 - Linha.gpkg"
+    stake_path = "test/BR/eixo/SNV - BR-080 - Estacas (contratante).kmz"
+    ref_path =  "file/img_ref_pattern.xlsx"
     start_point_label = "94+300"
     start_name_column = "Name"
     max_sheet_km = 10
+    CRS = "EPSG:31982" # Goiás Teste
 
-    axis_processed = BuildAxis(
-        axis_path,
-        stake_path,
+    gdf_axis,gdf_axis_stake = BuildAxis(
+        gpd.read_file(axis_path).to_crs(CRS),
+        KMZToGeoDataFrame(stake_path).to_crs(CRS),
         start_point_label,
-        start_name_column
+        start_name_column,
+        CRS
         )
+    # gdf_axis.to_file("test/BR/eixo/Estaqueamento 20m.gpkg",index=False)
     
-    print(axis_processed)
+    gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
+    sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
+
+    # gdf_axis.to_file("test/BR/eixo/IMAGEM.gpkg",index=False)
+    sheet_ref.to_excel("test/BR/PlanRef.xlsx",index=False)
+    
+    print(sheet_ref.head(50)) # .columns
 
     if False:
         # Estaca
