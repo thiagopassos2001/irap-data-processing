@@ -7,10 +7,10 @@ def DownloadBuildAxis(axis_path,stake_path,start_point_label,start_name_column,C
     # with st.spinner("Processando...", show_time=True):
 
     print("Iniciando processo...")
+    st.success("Iniciando processo...",)
 
-    CRS_int = int(CRS.split(":")[-1])
-    gdf_axis = gpd.read_file(axis_path).to_crs(CRS_int)
-    gdf_axis_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
+    gdf_axis = gpd.read_file(axis_path).to_crs(CRS)
+    gdf_axis_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS)
 
     print(gdf_axis)
     
@@ -20,14 +20,16 @@ def DownloadBuildAxis(axis_path,stake_path,start_point_label,start_name_column,C
         start_point_label,
         start_name_column,
         CRS)
+    
+    print("Arquivo processado com sucesso!")
     st.success("Arquivo processado com sucesso!")
 
-    buffer0 = BytesIO()
-    gdf_axis.to_file(buffer0,driver='GPKG',index=False)
-    buffer0.seek(0)
+    gdf_axis_buffer = BytesIO()
+    gdf_axis.to_file(gdf_axis_buffer,driver='GPKG',index=False)
+    gdf_axis_buffer.seek(0)
 
-    buffer1 = BytesIO()
-    gdf_axis_stake.to_file(buffer1,driver='GPKG',index=False)
-    buffer1.seek(1)
+    gdf_axis_stake_buffer = BytesIO()
+    gdf_axis_stake.to_file(gdf_axis_stake_buffer,driver='GPKG',index=False)
+    gdf_axis_stake_buffer.seek(1)
 
-    return buffer0,buffer1
+    return gdf_axis_buffer,gdf_axis_stake_buffer
