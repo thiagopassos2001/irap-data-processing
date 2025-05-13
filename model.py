@@ -351,14 +351,11 @@ def StakeToFloat(stake_string,sep="+"):
 
 def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
     # Estaca
-    # gdf_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS_int)
     gdf_stake['geometry'] = gdf_stake['geometry'].apply(shapely.force_2d)
     gdf_stake["KM ESTACA"] = gdf_stake[start_name_column].apply(StakeToFloat)
     start_point = gdf_stake[gdf_stake[start_name_column]==start_point_label]["geometry"].values[0]
 
     # Eixo
-    # axis_name_file = os.path.basename(axis_path)
-    # gdf_axis = gpd.read_file(axis_path).to_crs(CRS_int)
     gdf_axis['geometry'] = gdf_axis['geometry'].apply(shapely.force_2d)
 
     # Inverte ou não a ordem dos KMs
@@ -368,9 +365,11 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
 
     if shapely.distance(start_point,pt_start)>shapely.distance(start_point,pt_last):
         gdf_axis.loc[0,"geometry"] = shapely.LineString(reversed(list(line.coords)))
+    
     gdf_axis = ExpandToSegmentsBySplitPoint(gdf_axis,gdf_stake["geometry"].tolist(),max_dist_snap=100)
     gdf_axis["COMPRIMENTO"] = gdf_axis["geometry"].length
-    # gdf_axis.to_file(axis_path.replace(".gpkg"," EIXO ESTAQUEADO.gpkg"),index=False)
+    
+    # Salvar uma cópia do eixo atual para retornar no fim
     gdf_axis_stake = gdf_axis.copy()
 
     new_gdf_axis = []
@@ -391,8 +390,9 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
 
         # Remove do todo
         gdf_axis = gdf_axis[gdf_axis["geometry"]!=axis["geometry"].iloc[0]]
+        gdf_stake = gdf_stake[gdf_stake["geometry"]!=next_point]
         
-        # Comprimento
+        # Comprimento de quebra do segmento
         l = axis["geometry"].iloc[0].length
         num_pt = round(l/20,0) if round(l/20,0)<= 50 else 50
         len_split = l/num_pt
@@ -408,12 +408,12 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
             max_length=len_split,
             tolerance=0)
         
-        axis["KM"] = axis["KM"]*(1 if l<=1000 else 1000/l) + stake_start["KM ESTACA"].values[0]
+        axis["KM"] = axis["KM"]*(int(str(l)[0]+"00")/l if l<1000 else 1000/l) + stake_start["KM ESTACA"].values[0]
         axis["KM"] = axis["KM"].round(3)
         
         new_gdf_axis.append(axis)
         count = count + 1
-        next_point = axis["geometry"].values[0]
+        next_point = axis["geometry"].values[-1]
 
         print(f"Running\t{round(count*100/max_count,1)}%")
     
@@ -482,10 +482,10 @@ if __name__=="__main__":
         )
     # gdf_axis.to_file("test/BR/eixo/Estaqueamento 20m.gpkg",index=False)
     
-    gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
-    sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
+    # gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
+    # sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
 
-    # gdf_axis.to_file("test/BR/eixo/Teste.gpkg",index=False)
+    # gdf_axis.to_file("test/BR/eixo/IMAGEM.gpkg",index=False)
     # sheet_ref.to_excel("test/BR/PlanRef.xlsx",index=False)
     
     print(gdf_axis.head(50)) # .columns
