@@ -485,10 +485,10 @@ if __name__=="__main__":
     gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
     sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
 
-    # gdf_axis.to_file("test/BR/eixo/IMAGEM.gpkg",index=False)
-    sheet_ref.to_excel("test/BR/PlanRef.xlsx",index=False)
+    # gdf_axis.to_file("test/BR/eixo/Teste.gpkg",index=False)
+    # sheet_ref.to_excel("test/BR/PlanRef.xlsx",index=False)
     
-    print(sheet_ref.head(50)) # .columns
+    print(gdf_axis.head(50)) # .columns
 
     if False:
         # Estaca

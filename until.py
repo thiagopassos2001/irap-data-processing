@@ -276,6 +276,78 @@ def SplitLineStringByMaxLengthRandom(
     
     return list_segments
 
+def MoveOrCopyFiles(src,dst,mode='copy',replace_file=False,suffix="_copy",logs=True,return_dst=False):
+    '''
+    Parameters
+    ----------
+    src : str
+        Caminho de origem do arquivo.
+    dst : str
+        Caminho de destino do arquivo.
+    mode : str, optional
+        Modo copiar (copy) ou mover (move). O padrão é 'copy'.
+    replace_file : bool, optional
+        Substituir arquivo se já existir na pasta. O padrão é falso.
+    suffix : str, optional
+        Define o sufixo adotado caso a opção "replace" seja falsa
+    log : bool, optional
+        Mostrar caminho de saída, confirmando a operação. Útil principalmente
+        se o nome do arquivo for alterado.O padrão é verdadeiro.
+    return_dst : bool, optional
+        Determina se só será executada a função ou se retorná o caminho de destino
+        Se for executado com a função replace = False, o dst é alterado, com o nome do 
+        arquivo com o sufixo da variável suffix. Pode ser útil para identificar quando ocorre e manipular
+        essa informação
+    Returns
+    -------
+    dst final do arquivo, se marcada a opção return_dst = True, se não, retorna None
+
+    '''
+    
+    # Verificações
+    # Verifica se o arquivo de origem 
+    # Este deve existir, se não para a execução
+    if os.path.isfile(src):
+        pass
+    else:
+        raise ValueError(f"O arquivo {src} não existe. verififique o caminho de origem")
+    
+    # Verifica se o arquivo de destino existe
+    # Este não deve existir, se existir, verifica a condição "replace"
+    if os.path.isfile(dst):
+        # Se replace = True, não exicutar alterações no nome do arquivo final
+        # Se replace = False, alterar o nome do arquivo para adicionar o sufixo
+        if replace_file:
+            pass
+        else:
+            # Altera ciclicamente, acrescendo o sufixo, até não substituir o arquivo
+            while os.path.isfile(dst):
+                base, ext = os.path.splitext(dst)
+                dst = base + suffix + ext
+            print("Foto com nome repetido, alterando nome...")
+    else:
+        pass
+    
+    # Verifica se o caminho final de destino existe
+    # Se não, cria a estrutura de pastas
+    folder_dst = os.path.dirname(os.path.realpath(dst))
+    if not os.path.exists(folder_dst):
+        os.makedirs(folder_dst)
+    
+    # Execução
+    if mode=='copy':
+        shutil.copyfile(src,dst)
+    elif mode=='move':
+        shutil.move(src,dst)
+    else:
+        raise ValueError(f"Modo escolhido {mode} não é um dos valores possíveis 'copy' ou 'move'.")
+    
+    if logs:
+        print(f"O arquivo {os.path.basename(src)} foi {'movido.' if mode=='move' else 'copiado.'}")
+    
+    return dst if return_dst else None
+
+
 if __name__=="__main__":
     pass
                 
