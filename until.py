@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 import shapely
 import timeit
+import shutil
+import os
 
 pd.options.mode.chained_assignment = None  # default='warn'
 
