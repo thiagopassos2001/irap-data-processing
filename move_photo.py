@@ -5,6 +5,7 @@ import subprocess
 import timeit
 import tkinter as tk
 from tkinter import filedialog
+from until import MoveOrCopyFiles
 
 def OpenFileDialog():
     root = tk.Tk()
@@ -24,9 +25,7 @@ def OpenFolderDialog():
     
     return folder_path
 
-from until import MoveOrCopyFiles
-
-if  __name__ == "__main__":
+def Main(hierarchy_folder=1,mode='copy'):
     print("Arquivo .gpkg com o eixo tratado: ")
     input_gpkg_file = OpenFileDialog()
     print(input_gpkg_file)
@@ -39,17 +38,15 @@ if  __name__ == "__main__":
     root_output_path = OpenFolderDialog()
     print(root_output_path)
 
-    # Modo "move" ou "copy"
-    mode = 'copy'
-
     gdf = gpd.read_file(input_gpkg_file)
-    gdf['src'] = gdf['RelPath'].apply(lambda x:os.path.join(root_input_path,"/".join(x.split("/")[-2:])).replace("\\","/"))
-    gdf['dst'] = gdf['RelPath'].apply(lambda x:os.path.join(root_output_path,"/".join(x.split("/")[-2:])).replace("\\","/"))
+    gdf['src'] = gdf['RelPath'].apply(lambda x:os.path.join(root_input_path,"/".join(x.split("/")[-1-hierarchy_folder:])).replace("\\","/"))
+    gdf['dst'] = gdf['RelPath'].apply(lambda x:os.path.join(root_output_path,"/".join(x.split("/")[-1-hierarchy_folder:])).replace("\\","/"))
 
     # Inicia o timer
     start_timer = timeit.default_timer()
     max_count = len(gdf)
     count_progress = 0
+    #
     
     for index, row in gdf.iterrows():
         src = row['src']
@@ -65,3 +62,9 @@ if  __name__ == "__main__":
         count_timer = stop_timer - start_timer
         eta = (count_timer/(count_progress))*(max_count-count_progress)
         print(f"{os.path.basename(dst)} foi {'movido.' if mode=='move' else 'copiado.'}... {count_progress}/{max_count} (Run: {int(count_timer/60)}min:{int(count_timer%60)}s - ETC:{int(eta/60)}min:{int(eta%60)}s)")
+        #
+
+if  __name__ == "__main__":
+    Main()
+
+    
