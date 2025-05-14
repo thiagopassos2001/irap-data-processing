@@ -39,8 +39,8 @@ def Main(hierarchy_folder=1,mode='copy'):
     print(root_output_path)
 
     gdf = gpd.read_file(input_gpkg_file)
-    gdf['src'] = gdf['RelPath'].apply(lambda x:os.path.join(root_input_path,"/".join(x.split("/")[-1-hierarchy_folder:])).replace("\\","/"))
-    gdf['dst'] = gdf['RelPath'].apply(lambda x:os.path.join(root_output_path,"/".join(x.split("/")[-1-hierarchy_folder:])).replace("\\","/"))
+    gdf['src'] = gdf['RelPath'].apply(lambda x:os.path.join(root_input_path,"/".join(x.split("\\")[-1-hierarchy_folder:])).replace("\\","/"))
+    gdf['dst'] = gdf['RelPath'].apply(lambda x:os.path.join(root_output_path,"/".join(x.split("\\")[-1-hierarchy_folder:])).replace("\\","/"))
 
     # Inicia o timer
     start_timer = timeit.default_timer()
