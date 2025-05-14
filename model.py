@@ -424,6 +424,7 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
     return gdf_axis,gdf_axis_stake
 
 def MatchImages(gdf_axis,gdf_img):
+    CRS = gdf_axis.crs
     gdf_axis = gdf_axis.sjoin_nearest(
         gdf_img[["Name","RelPath","Timestamp","Lon","Lat","geometry"]],
         how="left",
@@ -438,6 +439,12 @@ def MatchImages(gdf_axis,gdf_img):
 
     gdf_axis["DIV LINHA"] = gdf_axis["ORDEM"].apply(lambda value:value//5)
     gdf_axis["DIV PLANILHA"] = gdf_axis["ORDEM"].apply(lambda value:value//500)
+
+    # Ajuste das coordenadas para os próprios pontos
+    gdf_axis = gdf_axis.to_crs("EPSG:4326")
+    gdf_axis["Lat"] = gdf_axis["geometry"].y
+    gdf_axis["Lon"] = gdf_axis["geometry"].x
+    gdf_axis = gdf_axis.to_crs(CRS)
     
     return gdf_axis
 
