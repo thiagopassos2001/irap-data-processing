@@ -395,7 +395,16 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
         # Comprimento de quebra do segmento
         l = axis["geometry"].iloc[0].length
         num_pt = round(l/20,0) if round(l/20,0)<= 50 else 50
-        len_split = l/num_pt
+        force_pattern = False
+        try:
+            len_split = l/num_pt
+            if len_split>25:
+                len_split = 20
+                force_pattern = True
+        except Exception as e:
+            print(e)
+            len_split = 20
+            force_pattern = True
 
         # Converte para ponto
         axis = ExpandLineStringToPoint(axis)
@@ -408,7 +417,10 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
             max_length=len_split,
             tolerance=0)
         
-        axis["KM"] = axis["KM"]*(int(str(l)[0]+"00")/l if l<1000 else 1000/l) + stake_start["KM ESTACA"].values[0]
+        if force_pattern:
+            axis["KM"] = axis["KM"] + stake_start["KM ESTACA"].values[0]
+        else:
+            axis["KM"] = axis["KM"]*(int(str(l)[0]+"00")/l if l<1000 else 1000/l) + stake_start["KM ESTACA"].values[0]
         axis["KM"] = axis["KM"].round(3)
         
         new_gdf_axis.append(axis)
@@ -416,7 +428,7 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
         next_point = axis["geometry"].values[-1]
 
         print(f"Running\t{round(count*100/max_count,1)}%")
-    
+
     gdf_axis = gpd.GeoDataFrame(pd.concat(new_gdf_axis,ignore_index=True),geometry="geometry",crs=CRS)
     gdf_axis = gdf_axis.drop_duplicates(subset="geometry",keep="last").reset_index()
     gdf_axis["ORDEM"] = list(range(1,len(gdf_axis)+1))
@@ -471,14 +483,23 @@ def SheetRef(gdf_axis,df_ref):
     return df
 
 if __name__=="__main__":
-    img_path = "test/BR/fotos/SNV - BR-080 - Fotos.gpkg"
-    axis_path = "test/BR/eixo/SINV - BR - 080 - Linha.gpkg"
-    stake_path = "test/BR/eixo/SNV - BR-080 - Estacas (contratante).kmz"
+    # img_path = "test/BR/fotos/SNV - BR-080 - Fotos.gpkg"
+    # axis_path = "test/BR/eixo/SINV - BR - 080 - Linha.gpkg"
+    # stake_path = "test/BR/eixo/SNV - BR-080 - Estacas (contratante).kmz"
+    # ref_path =  "file/img_ref_pattern.xlsx"
+    # start_point_label = "94+300"
+    # start_name_column = "Name"
+    # max_sheet_km = 10
+    # CRS = "EPSG:31982" # Goiás Teste
+
+    img_path = r"C:\Users\thiagop\Desktop\Exemplo\shape input\shape_gpkg_fotos_brutas.gpkg"
+    axis_path = r"C:\Users\thiagop\Desktop\Exemplo\shape input\eixo_levantamento.gpkg"
+    stake_path = r"C:\Users\thiagop\Desktop\Exemplo\shape input\est.kmz"
     ref_path =  "file/img_ref_pattern.xlsx"
-    start_point_label = "94+300"
+    start_point_label = "100+800"
     start_name_column = "Name"
     max_sheet_km = 10
-    CRS = "EPSG:31982" # Goiás Teste
+    CRS = "EPSG:31984" # Goiás Teste
 
     gdf_axis,gdf_axis_stake = BuildAxis(
         gpd.read_file(axis_path).to_crs(CRS),
@@ -489,11 +510,11 @@ if __name__=="__main__":
         )
     # gdf_axis.to_file("test/BR/eixo/Estaqueamento 20m.gpkg",index=False)
     
-    # gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
-    # sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
+    gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
+    sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
 
-    # gdf_axis.to_file("test/BR/eixo/IMAGEM.gpkg",index=False)
-    # sheet_ref.to_excel("test/BR/PlanRef.xlsx",index=False)
+    gdf_axis.to_file("IMAGEM.gpkg",index=False)
+    sheet_ref.to_excel("PlanRef.xlsx",index=False)
     
     print(gdf_axis.head(50)) # .columns
 
