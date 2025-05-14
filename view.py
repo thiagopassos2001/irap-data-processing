@@ -1,7 +1,5 @@
 import streamlit as st
-
 from controller import ProcessAxisAndSheet
-import subprocess
 
 def main():
     st.title("Coleta de Dados - Pré Tratamento",)
