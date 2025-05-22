@@ -368,6 +368,8 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
     
     gdf_axis = ExpandToSegmentsBySplitPoint(gdf_axis,gdf_stake["geometry"].tolist(),max_dist_snap=100)
     gdf_axis["COMPRIMENTO"] = gdf_axis["geometry"].length
+    gdf_axis = gdf_axis.sjoin_nearest(gdf_stake[[start_name_column,"geometry"]])
+    gdf_axis = gdf_axis.rename(columns={start_name_column+"_right":"Estaca"})
     
     # Salvar uma cópia do eixo atual para retornar no fim
     gdf_axis_stake = gdf_axis.copy()
@@ -392,10 +394,14 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
         gdf_axis = gdf_axis[gdf_axis["geometry"]!=axis["geometry"].iloc[0]]
         gdf_stake = gdf_stake[gdf_stake["geometry"]!=next_point]
         
+        # Versao teste funcionando até o momento
         # Comprimento de quebra do segmento
+        force_count = axis["Estaca"].iloc[0].split("+")[-1]=="000"
         l = axis["geometry"].iloc[0].length
         num_pt = round(l/20,0) if round(l/20,0)<= 50 else 50
+        num_pt = 50 if force_count else num_pt
         force_pattern = False
+        
         try:
             len_split = l/num_pt
             if len_split>25:
@@ -405,6 +411,21 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
             print(e)
             len_split = 20
             force_pattern = True
+        
+        # # Versao funcionando até o momento
+        # # Comprimento de quebra do segmento
+        # l = axis["geometry"].iloc[0].length
+        # num_pt = round(l/20,0) if round(l/20,0)<= 50 else 50
+        # force_pattern = False
+        # try:
+        #     len_split = l/num_pt
+        #     if len_split>25:
+        #         len_split = 20
+        #         force_pattern = True
+        # except Exception as e:
+        #     print(e)
+        #     len_split = 20
+        #     force_pattern = True
 
         # Converte para ponto
         axis = ExpandLineStringToPoint(axis)
@@ -419,8 +440,11 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
         
         if force_pattern:
             axis["KM"] = axis["KM"] + stake_start["KM ESTACA"].values[0]
+        elif force_count:
+            axis["KM"] = axis.index*0.02 + stake_start["KM ESTACA"].values[0]
         else:
             axis["KM"] = axis["KM"]*(int(str(l)[0]+"00")/l if l<1000 else 1000/l) + stake_start["KM ESTACA"].values[0]
+        
         axis["KM"] = axis["KM"].round(3)
         
         new_gdf_axis.append(axis)
@@ -492,14 +516,14 @@ if __name__=="__main__":
     # max_sheet_km = 10
     # CRS = "EPSG:31982" # Goiás Teste
 
-    img_path = r"C:\Users\thiagop\Desktop\Exemplo\shape input\shape_gpkg_fotos_brutas.gpkg"
-    axis_path = r"C:\Users\thiagop\Desktop\Exemplo\shape input\eixo_levantamento.gpkg"
-    stake_path = r"C:\Users\thiagop\Desktop\Exemplo\shape input\est.kmz"
+    img_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\FOTOS-270_ESPG31983.gpkg"
+    axis_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\EIXO-DECRESCENTE.gpkg"
+    stake_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\est.kmz"
     ref_path =  "file/img_ref_pattern.xlsx"
-    start_point_label = "100+800"
+    start_point_label = "9+898"
     start_name_column = "Name"
     max_sheet_km = 10
-    CRS = "EPSG:31984" # Goiás Teste
+    CRS = "EPSG:31982" # Goiás Teste
 
     gdf_axis,gdf_axis_stake = BuildAxis(
         gpd.read_file(axis_path).to_crs(CRS),
@@ -508,13 +532,13 @@ if __name__=="__main__":
         start_name_column,
         CRS
         )
-    # gdf_axis.to_file("test/BR/eixo/Estaqueamento 20m.gpkg",index=False)
+    gdf_axis_stake.to_file("test/Estaqueamento 1km.gpkg",index=False)
     
     gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
     sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
 
-    gdf_axis.to_file("IMAGEM.gpkg",index=False)
-    sheet_ref.to_excel("PlanRef.xlsx",index=False)
+    gdf_axis.to_file("test/Estaqueamento 20m.gpkg",index=False)
+    sheet_ref.to_excel("test/PlanRefPreenchida.xlsx",index=False)
     
     print(gdf_axis.head(50)) # .columns
 
