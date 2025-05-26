@@ -464,7 +464,7 @@ def MatchImages(gdf_axis,gdf_img):
     gdf_axis = gdf_axis.sjoin_nearest(
         gdf_img[["Name","RelPath","Timestamp","Lon","Lat","geometry"]],
         how="left",
-        max_distance=20,
+        max_distance=50, # o ideal é que isso não seja maior do que 20m
         distance_col="DISTANCIA IMAGEM").sort_values(by="DISTANCIA IMAGEM")
     
     gdf_axis = gdf_axis.drop_duplicates(subset="index_right")
