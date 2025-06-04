@@ -514,33 +514,46 @@ if __name__=="__main__":
     # start_point_label = "94+300"
     # start_name_column = "Name"
     # max_sheet_km = 10
-    # CRS = "EPSG:31982" # Goiás Teste
-
-    img_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\FOTOS-270_ESPG31983.gpkg"
-    axis_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\EIXO-DECRESCENTE.gpkg"
-    stake_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\est.kmz"
-    ref_path =  "file/img_ref_pattern.xlsx"
-    start_point_label = "9+898"
-    start_name_column = "Name"
-    max_sheet_km = 10
     CRS = "EPSG:31982" # Goiás Teste
+    mode = "gambiarra1"
+    if mode=="gambiarra1":
+        root_path = r"C:\Users\thiagop\Desktop\irap help\alças"
+        gdf = gpd.read_file(os.path.join(root_path,"SP280 - Dispositivos.gpkg")).to_crs(CRS)
+        
+        for row in range(len(gdf)):
+            gdf_ = gdf.iloc[row:row+1]
+            file_name = gdf_.iloc[0]["Name"]+"_"+gdf_.iloc[0]["layer"]
+            file_name = file_name.replace(".","_").replace("/","_")+".gpkg"
+            # gdf_["geometry"] = gdf_["geometry"].apply(lambda x:shapely.Point(list(x.coords)[0]))
+            gdf_["Name"] = "0+000"
+            gdf_.to_file(os.path.join(root_path,"GPKG EIXO",file_name),driver='GPKG')
 
-    gdf_axis,gdf_axis_stake = BuildAxis(
-        gpd.read_file(axis_path).to_crs(CRS),
-        KMZToGeoDataFrame(stake_path).to_crs(CRS),
-        start_point_label,
-        start_name_column,
-        CRS
-        )
-    gdf_axis_stake.to_file("test/Estaqueamento 1km.gpkg",index=False)
-    
-    gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
-    sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
+    if False:
+        img_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\FOTOS-270_ESPG31983.gpkg"
+        axis_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\EIXO-DECRESCENTE.gpkg"
+        stake_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\est.kmz"
+        ref_path =  "file/img_ref_pattern.xlsx"
+        start_point_label = "9+898"
+        start_name_column = "Name"
+        max_sheet_km = 10
+        CRS = "EPSG:31982" # Goiás Teste
 
-    gdf_axis.to_file("test/Estaqueamento 20m.gpkg",index=False)
-    sheet_ref.to_excel("test/PlanRefPreenchida.xlsx",index=False)
-    
-    print(gdf_axis.head(50)) # .columns
+        gdf_axis,gdf_axis_stake = BuildAxis(
+            gpd.read_file(axis_path).to_crs(CRS),
+            KMZToGeoDataFrame(stake_path).to_crs(CRS),
+            start_point_label,
+            start_name_column,
+            CRS
+            )
+        gdf_axis_stake.to_file("test/Estaqueamento 1km.gpkg",index=False)
+        
+        gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
+        sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
+
+        gdf_axis.to_file("test/Estaqueamento 20m.gpkg",index=False)
+        sheet_ref.to_excel("test/PlanRefPreenchida.xlsx",index=False)
+        
+        print(gdf_axis.head(50)) # .columns
 
     if False:
         # Estaca
