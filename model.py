@@ -517,16 +517,16 @@ if __name__=="__main__":
     CRS = "EPSG:31982" # Goiás Teste
     mode = "gambiarra1"
     if mode=="gambiarra1":
-        root_path = r"C:\Users\thiagop\Desktop\irap help\alças"
+        root_path = r"C:\Users\User\Desktop\irapp"
         gdf = gpd.read_file(os.path.join(root_path,"SP280 - Dispositivos.gpkg")).to_crs(CRS)
         
         for row in range(len(gdf)):
             gdf_ = gdf.iloc[row:row+1]
             file_name = gdf_.iloc[0]["Name"]+"_"+gdf_.iloc[0]["layer"]
             file_name = file_name.replace(".","_").replace("/","_")+".gpkg"
-            # gdf_["geometry"] = gdf_["geometry"].apply(lambda x:shapely.Point(list(x.coords)[0]))
-            gdf_["Name"] = "0+000"
-            gdf_.to_file(os.path.join(root_path,"GPKG EIXO",file_name),driver='GPKG')
+            gdf_["geometry"] = gdf_["geometry"].apply(lambda x:shapely.Point(list(x.coords)[0]))
+            gdf_["Name"] = "0+001"
+            gdf_.to_file(os.path.join(root_path,"GPKG ESTACA",file_name),driver='GPKG')
 
     if False:
         img_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\FOTOS-270_ESPG31983.gpkg"

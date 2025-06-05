@@ -16,7 +16,12 @@ def ProcessAxisAndSheet(
     st.success("Iniciando processo...",)
 
     gdf_axis = gpd.read_file(axis_path).to_crs(CRS)
-    gdf_axis_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS)
+    
+    if stake_path.endswith(".kmz"):
+        gdf_axis_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS)
+    else:
+        gdf_axis_stake = gpd.read_file(stake_path).to_crs(CRS)
+
     gdf_img = gpd.read_file(img_path).to_crs(CRS)
     df_ref = pd.read_excel("file/img_ref_pattern.xlsx")
     
