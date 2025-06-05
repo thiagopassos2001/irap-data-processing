@@ -3,7 +3,7 @@ from controller import ProcessAxisAndSheet
 
 def main():
     st.title("Coleta de Dados - Pré Tratamento",)
-    st.image("assets/certare2.jpg", caption="Segmentação de imagens ao longo do eixo da rodovia orientado ao estaqueamento")
+    # st.image("assets/certare2.jpg", caption="Segmentação de imagens ao longo do eixo da rodovia orientado ao estaqueamento")
     CRS = st.text_input("Coordinate Reference System (CRS) do Local (sistema métrico, padrão como no exemplo)",value="EPSG:31982")
 
     stake_path = st.file_uploader("Escolha o shapefile do estaqueamento do eixo (.kmz)", type=["kmz","gpkg"])
