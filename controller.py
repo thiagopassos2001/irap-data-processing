@@ -16,8 +16,9 @@ def ProcessAxisAndSheet(
     st.success("Iniciando processo...",)
 
     gdf_axis = gpd.read_file(axis_path).to_crs(CRS)
-    
-    if stake_path.endswith(".kmz"):
+
+    # print(stake_path.name,type(stake_path.name))
+    if stake_path.name.endswith(".kmz"):
         gdf_axis_stake = KMZToGeoDataFrame(stake_path).to_crs(CRS)
     else:
         gdf_axis_stake = gpd.read_file(stake_path).to_crs(CRS)
