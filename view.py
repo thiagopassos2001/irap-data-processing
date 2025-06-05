@@ -6,7 +6,7 @@ def main():
     st.image("assets/certare2.jpg", caption="Segmentação de imagens ao longo do eixo da rodovia orientado ao estaqueamento")
     CRS = st.text_input("Coordinate Reference System (CRS) do Local (sistema métrico, padrão como no exemplo)",value="EPSG:31982")
 
-    stake_path = st.file_uploader("Escolha o shapefile do estaqueamento do eixo (.kmz)", type=["kmz"])
+    stake_path = st.file_uploader("Escolha o shapefile do estaqueamento do eixo (.kmz)", type=["kmz","gpkg"])
     axis_path = st.file_uploader("Escolha o shapefile do caminho do eixo (.gpkg). Pode ser coletado pelo MyMaps", type=["gpkg"])
     img_path = st.file_uploader("Escolha o shapefile das fotos em shape (.gpkg). Pode ser coletado com o QGIS com o ImportPhotos", type=["gpkg"])
     start_name_column = st.text_input("Nome da coluna que contém a estaca inicial do estaqueamento",value="Name")
