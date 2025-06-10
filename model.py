@@ -370,9 +370,11 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
     gdf_axis["COMPRIMENTO"] = gdf_axis["geometry"].length
     gdf_axis = gdf_axis.sjoin_nearest(gdf_stake[[start_name_column,"geometry"]])
     gdf_axis = gdf_axis.rename(columns={start_name_column+"_right":"Estaca"})
+    print(gdf_axis)
     
     # Salvar uma cópia do eixo atual para retornar no fim
     gdf_axis_stake = gdf_axis.copy()
+    print(len(gdf_axis),len(gdf_stake))
 
     new_gdf_axis = []
     count = 0
@@ -404,14 +406,14 @@ def BuildAxis(gdf_axis,gdf_stake,start_point_label,start_name_column,CRS):
         
         try:
             len_split = l/num_pt
-            if len_split>25:
+            if (len_split>25) or (len_split<15):
                 len_split = 20
                 force_pattern = True
         except Exception as e:
             print(e)
             len_split = 20
             force_pattern = True
-        
+        print(l,len_split,stake_start["Name"].iloc[0],force_count)
         # # Versao funcionando até o momento
         # # Comprimento de quebra do segmento
         # l = axis["geometry"].iloc[0].length
@@ -515,7 +517,7 @@ if __name__=="__main__":
     # start_name_column = "Name"
     # max_sheet_km = 10
     CRS = "EPSG:31982" # Goiás Teste
-    mode = "gambiarra1"
+    mode = "teste-10-06-2025"
     if mode=="gambiarra1":
         root_path = r"C:\Users\User\Desktop\irapp"
         gdf = gpd.read_file(os.path.join(root_path,"SP280 - Dispositivos.gpkg")).to_crs(CRS)
@@ -528,30 +530,33 @@ if __name__=="__main__":
             gdf_["Name"] = "0+001"
             gdf_.to_file(os.path.join(root_path,"GPKG ESTACA",file_name),driver='GPKG')
 
-    if False:
-        img_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\FOTOS-270_ESPG31983.gpkg"
-        axis_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\EIXO-DECRESCENTE.gpkg"
-        stake_path = r"C:\Users\thiagop\Desktop\Task iRap\v2\est.kmz"
+    if mode=="teste-10-06-2025":
+        img_path = r"C:\Users\thiagop\Desktop\iRap issues\09-06-2025\SP-029 - Sentido Crescente_Fotos.gpkg"
+        axis_path = r"C:\Users\thiagop\Desktop\iRap issues\09-06-2025\SP-029 - Sentido Crescente_Eixo.gpkg"
+        stake_path = r"C:\Users\thiagop\Desktop\iRap issues\09-06-2025\SP-029 - Sentido Crescente_Estaqueamento.kmz"
         ref_path =  "file/img_ref_pattern.xlsx"
-        start_point_label = "9+898"
+        start_point_label = "32+580"
         start_name_column = "Name"
         max_sheet_km = 10
         CRS = "EPSG:31982" # Goiás Teste
 
+        stake_gdf = KMZToGeoDataFrame(stake_path).to_crs(CRS)
+        # stake_gdf = stake_gdf[stake_gdf["Name"].apply(lambda value:True if (value[-3:]=="000") or (value in ["32+580","44+400"]) else False)]
+
         gdf_axis,gdf_axis_stake = BuildAxis(
             gpd.read_file(axis_path).to_crs(CRS),
-            KMZToGeoDataFrame(stake_path).to_crs(CRS),
+            stake_gdf,
             start_point_label,
             start_name_column,
             CRS
             )
-        gdf_axis_stake.to_file("test/Estaqueamento 1km.gpkg",index=False)
+        gdf_axis_stake.to_file("test2/Estaqueamento 1km.gpkg",index=False)
         
         gdf_axis = MatchImages(gdf_axis,gpd.read_file(img_path).to_crs(CRS))
         sheet_ref = SheetRef(gdf_axis,pd.read_excel(ref_path))
 
-        gdf_axis.to_file("test/Estaqueamento 20m.gpkg",index=False)
-        sheet_ref.to_excel("test/PlanRefPreenchida.xlsx",index=False)
+        gdf_axis.to_file("test2/Estaqueamento 20m.gpkg",index=False)
+        sheet_ref.to_excel("test2/PlanRefPreenchida.xlsx",index=False)
         
         print(gdf_axis.head(50)) # .columns
 
